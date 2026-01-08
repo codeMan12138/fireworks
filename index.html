@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>绚烂烟花 | 点击屏幕绽放</title>
+    <title>LJH 艺术字烟花 | 自动绽放</title>
     <style>
         * {
             margin: 0;
@@ -18,6 +18,10 @@
         }
         canvas {
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1; /* 烟花层在文字下层，实现穿过效果 */
         }
         .tip {
             position: fixed;
@@ -29,11 +33,35 @@
             font-size: 16px;
             opacity: 0.8;
             pointer-events: none;
+            z-index: 3;
+        }
+        /* LJH 艺术字样式 */
+        .ljh-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(80px, 20vw, 200px); /* 自适应大小 */
+            font-family: "Arial Black", "Microsoft Yahei", sans-serif;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.9);
+            letter-spacing: 30px;
+            text-shadow: 
+                0 0 10px rgba(255, 255, 255, 0.9),
+                0 0 20px rgba(255, 150, 0, 0.7),
+                0 0 40px rgba(255, 0, 150, 0.5),
+                0 0 80px rgba(0, 100, 255, 0.3);
+            pointer-events: none; /* 鼠标事件穿透，不影响烟花交互 */
+            z-index: 2; /* 文字层在烟花层上层 */
+            /* 轻微透视增强景深感 */
+            perspective: 800px;
+            transform-style: preserve-3d;
         }
     </style>
 </head>
 <body>
-    <div class="tip">点击屏幕任意位置，绽放烟花 ✨</div>
+    <div class="tip">自动绽放烟花 ✨ 点击屏幕可额外触发</div>
+    <div class="ljh-text">LJH</div>
     <canvas id="fireworks"></canvas>
 
     <script>
@@ -61,7 +89,7 @@
             '#ffffff', '#ffcccc', '#ccffcc', '#ccccff'
         ];
 
-        // 粒子类
+        // 粒子类（增加景深属性）
         class Particle {
             constructor(x, y) {
                 this.x = x;
@@ -74,22 +102,32 @@
                 this.color = colors[Math.floor(random(0, colors.length))];
                 this.alpha = 1;
                 this.decay = random(0.005, 0.01);
+
+                // 景深核心属性
+                this.depth = random(0, 1); // 0=最远，1=最近
+                this.size = 2 + this.depth * 2; // 近的粒子更大（2-4px）
+                this.blur = 1 - this.depth; // 远的粒子更模糊（0-1）
+                this.speedMultiplier = 1 + this.depth * 0.4; // 近的粒子移动稍快
             }
 
             update() {
                 // 加入重力效果，让粒子向下坠
                 this.vy += this.gravity;
-                this.x += this.vx;
-                this.y += this.vy;
+                // 结合景深调整移动速度
+                this.x += this.vx * this.speedMultiplier;
+                this.y += this.vy * this.speedMultiplier;
                 // 粒子逐渐透明
                 this.alpha -= this.decay;
             }
 
             draw() {
                 ctx.save();
+                // 景深模糊效果
+                ctx.filter = `blur(${this.blur * 1.5}px)`;
                 ctx.globalAlpha = this.alpha;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                // 结合景深调整粒子大小
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
                 ctx.restore();
@@ -99,14 +137,32 @@
         // 存储所有粒子
         let particles = [];
 
-        // 点击页面生成烟花
-        document.addEventListener('click', (e) => {
-            // 每次点击生成100个粒子
+            // 生成烟花的通用函数（供点击和自动调用）
+            function spawnFirework(x, y) {
             const particleCount = 100;
             for (let i = 0; i < particleCount; i++) {
-                particles.push(new Particle(e.clientX, e.clientY));
+                particles.push(new Particle(x, y));
             }
+            }
+
+            // 点击页面生成烟花（保留原有交互）
+            document.addEventListener('click', (e) => {
+                spawnFirework(e.clientX, e.clientY);
         });
+
+            // 自动生成烟花（围绕LJH文字区域）
+            function autoSpawnFirework() {
+                // 文字中心位置
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                // 围绕文字随机生成烟花位置（扩大范围，确保穿过文字）
+                const randomX = centerX + random(-400, 400);
+                const randomY = centerY + random(-300, 300);
+                spawnFirework(randomX, randomY);
+
+                // 随机间隔生成（500-1200ms），营造自然效果
+                setTimeout(autoSpawnFirework, random(500, 1200));
+            }
 
         // 动画循环
         function animate() {
@@ -125,8 +181,9 @@
             requestAnimationFrame(animate);
         }
 
-        // 启动动画
+        // 启动动画 + 自动生成烟花
         animate();
+            autoSpawnFirework();
     </script>
 </body>
 </html>
